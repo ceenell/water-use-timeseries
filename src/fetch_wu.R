@@ -75,14 +75,13 @@ wu_clean_time <- wu_clean %>%
     summarize(value = sum(value, na.rm = TRUE)) %>%
   dcast(state_name + year + water_use ~ water_kind, value.var = "value") %>%
   left_join(wu_vars)
-str(wu_clean_time)
 
 # export state-level timeseries of water use categories by type/source
 # # using multiple total columns to account for differences in reporting
 wu_clean_time %>% 
   select(state_name, year, water_use, sw, gw, saline, fresh, total) %>%
   mutate(total_type = saline+fresh, total_source = gw+sw) %>%
-  write_csv("out/use_state_time.csv")
+  write_csv("/Users/cnell/Documents/Projects/water-use-timeseries/out/use_state_time.csv")
 
 # population trend and public supply --------------------------------------
 
@@ -116,13 +115,13 @@ colnames(ps_clean) <- c("state_name", "year", "water_use", "ps_facilities", "ps_
 str(ps_clean)
 
 # reduce variables
-ps_clean %>% select(state_name:water_use, ps_gallons_person_day:ps_pop_sw_1000, ps_reclaimed, ps_pop_served_1000:ps_total) %>%
-  write_csv("/Users/cnell/Documents/Projects/water-use-tiout/use_publicsupply.csv")
+ps_clean %>% 
+  select(state_name:water_use, ps_gallons_person_day:ps_pop_sw_1000, ps_reclaimed, ps_pop_served_1000:ps_total) %>%
+  left_join(wu_vars) %>%
+  write_csv("out/use_publicsupply.csv")
 
 
 # fetch county-level data -------------------------------------------------
-
-
 
 ## county-level data
 wu_county <- purrr::map(state.abb, ~readNWISuse(stateCd = .x, countyCd = 'ALL', convertType = TRUE))

@@ -124,6 +124,45 @@ ps_clean %>%
 # fetch county-level data -------------------------------------------------
 
 ## county-level data
-wu_county <- purrr::map(state.abb, ~readNWISuse(stateCd = .x, countyCd = 'ALL', convertType = TRUE))
-str(wu_states)
+wu_county <- purrr::map(state.abb, ~readNWISuse(stateCd = .x, countyCd = 'ALL', convertType = TRUE))%>%
+  rbindlist()
+str(wu_county)
 
+wu_vars_county <- wu_county[,c(2:6)]
+colnames(wu_vars_county) <- c('state_name', 'county_cd','county_nm', 'year', 'population_1000')
+
+# filter to withdrawal total variables - includes overall total and by saline / fresh & broken down by gw/sw
+wu_keep_county <- wu_county %>% select(contains('Mgal') & contains('withdrawals') & contains('total'),
+                                -contains("Hydroelectric"), -contains("Fossil"), -contains("Geothermal"),-contains("Nuclear"), 
+                                -contains("Closed"), -contains("Once"), -contains('Deliveries'))  # drop subcategories in thermoelectric and irrigation
+wu_keep_county
+
+# combine with state and year variables, relassify water use categories
+wu_clean_county <- wu_vars_county %>%
+  cbind(wu_keep_county) %>%
+  mutate(across(where(is.double) | where(is.character), ~as.numeric(.x))) #%>%
+  pivot_longer(!c(state_name, county_cd, county_nm, year, population_1000), "use", "use_value") %>%
+  mutate(used = use, use = str_split(tolower(use), '\\.')) %>%
+  rowwise() %>%
+  mutate(water_source = case_when(
+    'groundwater' %in% unlist(use) ~ 'gw',
+    'surface' %in% unlist(use) ~ 'sw',
+    TRUE ~ 'total'
+  ),
+  water_type = case_when(
+    'saline' %in% unlist(use) ~ 'saline',
+    'fresh' %in% unlist(use) ~ 'fresh',
+    TRUE ~ 'both'
+  ),
+  water_use = case_when(
+    'public' %in% unlist(use) ~ 'public supply',
+    'irrigation' %in% unlist(use) ~ 'irrigation',
+    'industrial' %in% unlist(use) ~ 'industrial',
+    'thermoelectric' %in% unlist(use) ~ 'thermoelectric',
+    'domestic' %in% unlist(use) ~ 'domestic',
+    'livestock' %in% unlist(use) ~ 'livestock',
+    'mining' %in% unlist(use) ~ 'mining',
+    'aquaculture' %in% unlist(use) ~ 'aquaculture'
+  )
+  ) %>%
+  ungroup()
